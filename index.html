@@ -1,0 +1,541 @@
+﻿<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>紅綠燈模擬器</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Noto Sans TC, Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 20px;
+    }
+    h1 {
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 1000px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .simulation, .controls {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.5);
+    }
+    .traffic-light {
+      width: 72px;
+      background: #111827;
+      border: 4px solid #334155;
+      border-radius: 16px;
+      padding: 12px 10px;
+      display: grid;
+      gap: 10px;
+      margin: 0;
+    }
+    .lamp {
+      width: 100%;
+      height: 36px;
+      border-radius: 50%;
+      background: #1f2937;
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.4);
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    .lamp.active {
+      box-shadow: 0 0 30px currentColor;
+    }
+    .lamp.red.active { color: #f43f5e; background: radial-gradient(circle at 30% 30%, #fee2e2, #f43f5e 55%); }
+    .lamp.yellow.active { color: #eab308; background: radial-gradient(circle at 30% 30%, #fef9c3, #eab308 55%); }
+    .lamp.green.active { color: #22c55e; background: radial-gradient(circle at 30% 30%, #dcfce7, #22c55e 55%); }
+    .status-box {
+      display: grid;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .direction-title {
+      margin: 0 0 8px;
+      font-size: 1.05rem;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #cbd5e1;
+    }
+    .info-block {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .info-card {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 12px;
+      min-height: 90px;
+    }
+    .info-card strong {
+      display: block;
+      margin-bottom: 8px;
+      color: #e2e8f0;
+    }
+    .controls form {
+      display: grid;
+      gap: 16px;
+    }
+    .control-group {
+      display: grid;
+      gap: 8px;
+    }
+    label {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.95rem;
+      color: #cbd5e1;
+    }
+    input[type=number], input[type=range] {
+      width: 100%;
+      border-radius: 10px;
+      background: #1f2937;
+      border: 1px solid #334155;
+      color: #f8fafc;
+      height: 40px;
+      padding: 0 10px;
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      margin-top: 8px;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #38bdf8;
+      cursor: pointer;
+      border: 2px solid #0f172a;
+    }
+    .button-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    button {
+      flex: 1;
+      min-width: 120px;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: filter 0.2s;
+      color: #0f172a;
+      background: #38bdf8;
+    }
+    button:hover { filter: brightness(1.05); }
+    button.stop { background: #f97316; color: #fff; }
+    .footer {
+      margin-top: 20px;
+      text-align: center;
+      color: #94a3b8;
+      font-size: 0.9rem;
+    }
+    .intersection {
+      width: 100%;
+      max-width: 440px;
+      aspect-ratio: 1 / 1;
+      background: radial-gradient(circle at top left, rgba(255,255,255,0.02), transparent 22%),
+                  radial-gradient(circle at bottom right, rgba(255,255,255,0.02), transparent 22%),
+                  #111827;
+      border-radius: 24px;
+      position: relative;
+      margin: 0 auto 20px;
+      overflow: hidden;
+      box-shadow: inset 0 0 40px rgba(0,0,0,0.4);
+    }
+    .intersection::before {
+      content: '';
+      position: absolute;
+      inset: 160px 0 160px 0;
+      background: #1f2937;
+    }
+    .intersection::after {
+      content: '';
+      position: absolute;
+      inset: 0 160px 0 160px;
+      background: #1f2937;
+    }
+    .traffic-light-group {
+      position: absolute;
+      display: grid;
+      gap: 10px;
+      align-items: center;
+      justify-items: center;
+    }
+    .traffic-light-group > .label {
+      font-size: 0.72rem;
+      color: #cbd5e1;
+      letter-spacing: 0.08em;
+    }
+    .traffic-light-group.north { top: 20px; left: 50%; transform: translateX(-50%); }
+    .traffic-light-group.south { bottom: 20px; left: 50%; transform: translateX(-50%) rotate(180deg); }
+    .traffic-light-group.west { left: 20px; top: 50%; transform: translateY(-50%) rotate(-90deg); }
+    .traffic-light-group.east { right: 20px; top: 50%; transform: translateY(-50%) rotate(90deg); }
+    .lane-line {
+      position: absolute;
+      background: rgba(255,255,255,0.18);
+      border-radius: 8px;
+    }
+    .lane-line.ns { width: 6px; left: calc(50% - 3px); height: 100%; }
+    .lane-line.ew { height: 6px; top: calc(50% - 3px); width: 100%; }
+    .lane-line::after {
+      content: '';
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(to bottom, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%);
+      opacity: 0.7;
+      top: 0;
+      left: 0;
+    }
+    .lane-line.ew::after { background: linear-gradient(to right, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%); }
+    .car {
+      position: absolute;
+      width: 24px;
+      height: 44px;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #7c3aed, #4f46e5);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.35);
+      border: 2px solid rgba(255,255,255,0.18);
+      display: grid;
+      place-items: center;
+      transform: translate(0, 0);
+      transition: transform 0.05s linear;
+    }
+    .car::before {
+      content: '';
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.9);
+      box-shadow: 0 0 10px rgba(255,255,255,0.7);
+      opacity: 0.8;
+    }
+    .car.south { transform: rotate(-180deg); }
+    .car.east { transform: rotate(-90deg); }
+    .car.west { transform: rotate(90deg); }
+    @media (max-width: 860px) {
+      .container { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <h1>紅綠燈模擬器</h1>
+  <div class="container">
+    <section class="simulation">
+      <div class="intersection" aria-label="交叉路口模擬區">
+        <div class="lane-line ns"></div>
+        <div class="lane-line ew"></div>
+        <div class="traffic-light-group north">
+          <span class="label">北</span>
+          <div class="traffic-light" aria-label="北向紅綠燈">
+            <div id="north-red" class="lamp red"></div>
+            <div id="north-yellow" class="lamp yellow"></div>
+            <div id="north-green" class="lamp green"></div>
+          </div>
+        </div>
+        <div class="traffic-light-group south">
+          <span class="label">南</span>
+          <div class="traffic-light" aria-label="南向紅綠燈">
+            <div id="south-red" class="lamp red"></div>
+            <div id="south-yellow" class="lamp yellow"></div>
+            <div id="south-green" class="lamp green"></div>
+          </div>
+        </div>
+        <div class="traffic-light-group west">
+          <span class="label">西</span>
+          <div class="traffic-light" aria-label="西向紅綠燈">
+            <div id="west-red" class="lamp red"></div>
+            <div id="west-yellow" class="lamp yellow"></div>
+            <div id="west-green" class="lamp green"></div>
+          </div>
+        </div>
+        <div class="traffic-light-group east">
+          <span class="label">東</span>
+          <div class="traffic-light" aria-label="東向紅綠燈">
+            <div id="east-red" class="lamp red"></div>
+            <div id="east-yellow" class="lamp yellow"></div>
+            <div id="east-green" class="lamp green"></div>
+          </div>
+        </div>
+        <div id="cars"></div>
+      </div>
+      <div class="status-box">
+        <div class="info-card">
+          <strong>目前狀態</strong>
+          <p id="current-phase">北南向 綠燈</p>
+        </div>
+        <div class="info-card">
+          <strong>剩餘時間</strong>
+          <p id="remaining-time">0 秒</p>
+        </div>
+      </div>
+    </section>
+    <section class="controls">
+      <form id="settings-form">
+        <div class="control-group">
+          <p class="direction-title">北南向時長 (秒)</p>
+          <label>綠燈 <input id="ns-green-duration" type="number" min="1" value="8" /></label>
+          <label>黃燈 <input id="ns-yellow-duration" type="number" min="1" value="3" /></label>
+          <label>紅燈 <input id="ns-red-duration" type="number" min="1" value="8" /></label>
+        </div>
+        <div class="control-group">
+          <p class="direction-title">東西向時長 (秒)</p>
+          <label>綠燈 <input id="ew-green-duration" type="number" min="1" value="8" /></label>
+          <label>黃燈 <input id="ew-yellow-duration" type="number" min="1" value="3" /></label>
+          <label>紅燈 <input id="ew-red-duration" type="number" min="1" value="8" /></label>
+        </div>
+        <div class="button-row">
+          <button type="button" id="start-btn">開始</button>
+          <button type="button" id="pause-btn" class="stop">暫停</button>
+        </div>
+      </form>
+    </section>
+  </div>
+  <div class="footer">調整秒數後按「開始」重新啟動模擬。</div>
+  <script>
+    const lights = {
+      north: {
+        red: document.getElementById('north-red'),
+        yellow: document.getElementById('north-yellow'),
+        green: document.getElementById('north-green')
+      },
+      south: {
+        red: document.getElementById('south-red'),
+        yellow: document.getElementById('south-yellow'),
+        green: document.getElementById('south-green')
+      },
+      west: {
+        red: document.getElementById('west-red'),
+        yellow: document.getElementById('west-yellow'),
+        green: document.getElementById('west-green')
+      },
+      east: {
+        red: document.getElementById('east-red'),
+        yellow: document.getElementById('east-yellow'),
+        green: document.getElementById('east-green')
+      }
+    };
+    const statusText = document.getElementById('current-phase');
+    const remainingText = document.getElementById('remaining-time');
+    const startButton = document.getElementById('start-btn');
+    const pauseButton = document.getElementById('pause-btn');
+    const carsRoot = document.getElementById('cars');
+    const settings = {
+      nsGreen: document.getElementById('ns-green-duration'),
+      nsYellow: document.getElementById('ns-yellow-duration'),
+      nsRed: document.getElementById('ns-red-duration'),
+      ewGreen: document.getElementById('ew-green-duration'),
+      ewYellow: document.getElementById('ew-yellow-duration'),
+      ewRed: document.getElementById('ew-red-duration')
+    };
+
+    const carTemplates = [
+      { direction: 'north', className: 'car north', start: -120, stop: 120, end: 520, axis: 'y', fixed: 202 },
+      { direction: 'south', className: 'car south', start: 520, stop: 280, end: -120, axis: 'y', fixed: 218 },
+      { direction: 'west', className: 'car west', start: -120, stop: 120, end: 520, axis: 'x', fixed: 218 },
+      { direction: 'east', className: 'car east', start: 520, stop: 280, end: -120, axis: 'x', fixed: 202 }
+    ];
+
+    let cars = [];
+    let lastFrameTime = null;
+    let animationFrame = null;
+    let timer = null;
+    let phase = 'ns-green';
+    let phaseTime = 0;
+    let remaining = 0;
+    const currentSpeed = 1;
+
+    function createCars() {
+      carsRoot.innerHTML = '';
+      cars = [];
+      carTemplates.forEach(template => {
+        for (let i = 0; i < 3; i++) {
+          const car = document.createElement('div');
+          car.className = template.className;
+          carsRoot.appendChild(car);
+          cars.push({
+            el: car,
+            direction: template.direction,
+            axis: template.axis,
+            fixed: template.fixed,
+            pos: template.start - i * 80,
+            start: template.start,
+            stop: template.stop,
+            end: template.end,
+            width: 24,
+            height: 44
+          });
+        }
+      });
+    }
+
+    function resetLights() {
+      Object.values(lights).forEach(group => {
+        Object.values(group).forEach(lamp => lamp.classList.remove('active'));
+      });
+    }
+
+    function updateLightPhase(phaseKey) {
+      resetLights();
+      const isNS = phaseKey.startsWith('ns');
+      const color = phaseKey.split('-')[1];
+
+      if (isNS) {
+        lights.north[color].classList.add('active');
+        lights.south[color].classList.add('active');
+        lights.west.red.classList.add('active');
+        lights.east.red.classList.add('active');
+      } else {
+        lights.west[color].classList.add('active');
+        lights.east[color].classList.add('active');
+        lights.north.red.classList.add('active');
+        lights.south.red.classList.add('active');
+      }
+    }
+
+    function readDurations() {
+      return {
+        ns: {
+          green: Math.max(1, Number(settings.nsGreen.value)),
+          yellow: Math.max(1, Number(settings.nsYellow.value)),
+          red: Math.max(1, Number(settings.nsRed.value))
+        },
+        ew: {
+          green: Math.max(1, Number(settings.ewGreen.value)),
+          yellow: Math.max(1, Number(settings.ewYellow.value)),
+          red: Math.max(1, Number(settings.ewRed.value))
+        }
+      };
+    }
+
+    function getPhaseDuration(phaseKey, durations) {
+      const [direction, color] = phaseKey.split('-');
+      return durations[direction][color];
+    }
+
+    function updateStatus(phaseKey, timeLeft) {
+      const directionName = phaseKey.startsWith('ns') ? '北南向' : '東西向';
+      const colorName = phaseKey.split('-')[1] === 'green' ? '綠燈' : '黃燈';
+      statusText.textContent = `${directionName} ${colorName}`;
+      remainingText.textContent = `${Math.ceil(timeLeft)} 秒`;
+    }
+
+    function nextPhase(current) {
+      const phaseOrder = ['ns-green', 'ns-yellow', 'ew-green', 'ew-yellow'];
+      const index = phaseOrder.indexOf(current);
+      return phaseOrder[(index + 1) % phaseOrder.length];
+    }
+
+    function directionAllowed(direction, phaseKey) {
+      if (direction === 'north' || direction === 'south') return phaseKey.startsWith('ns');
+      return phaseKey.startsWith('ew');
+    }
+
+    function updateCars(deltaSeconds) {
+      const moveSpeed = 60 * currentSpeed;
+
+      cars.forEach((car, index) => {
+        const allowed = directionAllowed(car.direction, phase);
+        let nextPos = car.pos;
+        const forward = ['north', 'west'].includes(car.direction) ? 1 : -1;
+
+        if (allowed) {
+          nextPos += forward * moveSpeed * deltaSeconds;
+        } else {
+          if (car.direction === 'north' && nextPos + car.height >= car.stop) nextPos = Math.min(nextPos, car.stop - car.height);
+          if (car.direction === 'south' && nextPos <= car.stop) nextPos = Math.max(nextPos, car.stop);
+          if (car.direction === 'west' && nextPos + car.width >= car.stop) nextPos = Math.min(nextPos, car.stop - car.width);
+          if (car.direction === 'east' && nextPos <= car.stop) nextPos = Math.max(nextPos, car.stop);
+        }
+
+        if (car.direction === 'north' && nextPos >= car.end) nextPos = car.start - index * 80;
+        if (car.direction === 'south' && nextPos <= car.end) nextPos = car.start + index * 80;
+        if (car.direction === 'west' && nextPos >= car.end) nextPos = car.start - index * 80;
+        if (car.direction === 'east' && nextPos <= car.end) nextPos = car.start + index * 80;
+
+        car.pos = nextPos;
+        if (car.axis === 'y') {
+          car.el.style.transform = `translate(${car.fixed}px, ${car.pos}px)`;
+        } else {
+          car.el.style.transform = `translate(${car.pos}px, ${car.fixed}px)`;
+        }
+      });
+    }
+
+    function animateCars(timestamp) {
+      if (!lastFrameTime) lastFrameTime = timestamp;
+      const delta = (timestamp - lastFrameTime) / 1000;
+      lastFrameTime = timestamp;
+      updateCars(delta);
+      animationFrame = requestAnimationFrame(animateCars);
+    }
+
+    function startSimulation() {
+      if (timer) clearInterval(timer);
+      if (animationFrame) cancelAnimationFrame(animationFrame);
+      phase = 'ns-green';
+      const durations = readDurations();
+      phaseTime = getPhaseDuration(phase, durations);
+      remaining = phaseTime;
+      updateLightPhase(phase);
+      updateStatus(phase, remaining);
+      createCars();
+      lastFrameTime = null;
+      animationFrame = requestAnimationFrame(animateCars);
+      timer = setInterval(() => {
+        const durations = readDurations();
+        const timeStep = 0.2 * currentSpeed;
+        remaining -= timeStep;
+        if (remaining <= 0) {
+          phase = nextPhase(phase);
+          phaseTime = getPhaseDuration(phase, durations);
+          remaining = phaseTime;
+          updateLightPhase(phase);
+        }
+        updateStatus(phase, remaining);
+      }, 200);
+    }
+
+    function pauseSimulation() {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+        animationFrame = null;
+      }
+      remainingText.textContent = '已暫停';
+    }
+
+    startButton.addEventListener('click', startSimulation);
+    pauseButton.addEventListener('click', pauseSimulation);
+
+    startSimulation();
+  </script>
+</body>
+</html>
